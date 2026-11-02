@@ -8,13 +8,17 @@
  * 的步驟（`agent/pre-step` waterfall）於當步訊息尾端補一則 user-role 的 plugin
  * 訊息；註冊時帶 `{ prepend: true }`，讓它排在最靠近模型回答的位置。
  *
- * 這支外掛**不提供任何 service**，是單純的消費端，所以只要掛在 preset 的 row
- * 上就好（不需要 isolate realm），而且只有掛它的那個 preset 的 session 會生效。
+ * 這支外掛**不提供任何 service**，是單純的消費端，掛在任何一層的 row 上都行
+ * （不需要 isolate realm）。0.2 之後本套件宣告 `dsh.bundle.patch`，安裝後由
+ * `cordis.patch.yml` 插一行到 profile 的組合裡。
  *
  * 刻意**零依賴**：外部套件是以 link 方式進 profile 的，從套件真實路徑往上找不到
  * harness 的 node_modules，所以連 `@deepseek-ai/dsh-llm` 的 `createUserMessage`
  * 都不能 import。這裡照它的語意自行建立等價訊息（randomUUID + 遞迴凍結），
  * 讓套件在任何安裝方式下都能直接跑，也不需要任何 build 權限。
+ *
+ * 0.2 起 `source.kind` 不再有共通的 `plugin`：每個生產者宣告自己的 kind，所以這裡
+ * 用 `interval-injector`（與 time-context 用 `time-context` 同一個做法）。
  */
 
 import { randomUUID } from 'node:crypto'
@@ -54,6 +58,11 @@ function countOf(value, fallback) {
 }
 
 /**
+ * `notice` 形式的 summary 上限：0.2 把這行寫進持久紀錄，長度要有界。
+ */
+const SUMMARY_MAX_CHARS = 120
+
+/**
  * 掛上 pre-step 監聽；外掛卸載時監聽自動移除。
  * @param ctx - 這個 preset row 的 context（隨 session 卸載）。
  * @param config - row config：`text`（要注入的文字，必填）、`everyNSteps`、
@@ -62,7 +71,8 @@ function countOf(value, fallback) {
 export function apply(ctx, config) {
   const options = config ?? {}
   const text = typeof options.text === 'string' ? options.text.trim() : ''
-  const logger = ctx.get('logger')
+  // 0.1 的 `ctx.get('logger')` 在 0.2 是 `ctx.logger`；兩者都試，取不到就不記錄。
+  const logger = ctx.logger ?? (typeof ctx.get === 'function' ? ctx.get('logger') : undefined)
 
   if (text === '') {
     logger?.warn?.('interval-injector: config.text 是空的，外掛不作用')
@@ -71,9 +81,12 @@ export function apply(ctx, config) {
 
   const everyNSteps = Math.floor(countOf(options.everyNSteps, DEFAULTS.everyNSteps))
   const refreshIntervalMs = countOf(options.refreshIntervalMs, DEFAULTS.refreshIntervalMs)
-  const summary = typeof options.summary === 'string' && options.summary !== ''
+  const requested = typeof options.summary === 'string' && options.summary !== ''
     ? options.summary
     : DEFAULTS.summary
+  const summary = requested.length <= SUMMARY_MAX_CHARS
+    ? requested
+    : `${requested.slice(0, SUMMARY_MAX_CHARS - 1)}…`
 
   if (everyNSteps === 0 && refreshIntervalMs === 0) {
     logger?.warn?.('interval-injector: everyNSteps 與 refreshIntervalMs 都是 0，外掛不作用')
@@ -111,7 +124,7 @@ export function apply(ctx, config) {
       id: randomUUID(),
       role: 'user',
       content: [{ type: 'text', text }],
-      source: { kind: 'plugin', plugin: name, form: 'notice', summary },
+      source: { kind: name, form: 'notice', summary },
     })
     return { ...decision, messages: [...decision.messages, message] }
   }, { prepend: true })

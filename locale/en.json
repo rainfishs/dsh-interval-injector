@@ -1,0 +1,1 @@
+{ "meta": { "title": "Interval Injector", "description": "Re-inject a block of text into the conversation every N steps or N minutes, so instructions near the start of a long session keep their weight." } }

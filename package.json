@@ -1,19 +1,30 @@
 {
   "name": "interval-injector",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A generic periodic context injector for DSH/Cordis agents: re-inject a block of text into the conversation every N steps or N minutes.",
   "type": "module",
   "main": "index.js",
   "exports": {
-    ".": "./index.js"
+    ".": "./index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
   },
   "files": [
     "index.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
     "README.md"
   ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
   "keywords": [
     "cordis",
     "cordis-plugin",
+    "dsh-bundle",
     "agent",
     "context",
     "injector"

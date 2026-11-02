@@ -1,0 +1,16 @@
+# Bundle patch: installing this package selects one profile-wide row.
+#
+# No `config` here on purpose — the text to inject belongs to the deployment,
+# not to the package. Override the row from the profile's own cordis.patch.yml:
+#
+#   - id: interval-injector
+#     name: interval-injector
+#     config:
+#       everyNSteps: 1
+#       text: |
+#         ...
+#
+# `config` is replaced wholesale, so restate every field the row needs.
+- insert:
+    - id: interval-injector
+      name: 'interval-injector'
